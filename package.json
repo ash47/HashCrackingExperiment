@@ -1,0 +1,23 @@
+{
+  "name": "hashcrackingwithgoogle",
+  "version": "1.0.0",
+  "description": "A thought experiment to see if it's possible to crack hashes using google's caching service.",
+  "main": "daemon.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ash47/HashCrackingWithGoogle.git"
+  },
+  "author": "Ash47",
+  "license": "UNLICENSED",
+  "bugs": {
+    "url": "https://github.com/ash47/HashCrackingWithGoogle/issues"
+  },
+  "homepage": "https://github.com/ash47/HashCrackingWithGoogle#readme",
+  "dependencies": {
+    "express": "^4.15.3",
+    "smbhash": "0.0.1"
+  }
+}

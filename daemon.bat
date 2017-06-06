@@ -1,0 +1,2 @@
+node daemon.js
+pause
