@@ -1,0 +1,26 @@
+#content {
+	padding: 8px;
+}
+
+.footer {
+	padding: 4px;
+	text-align: center;
+	width: 100%;
+}
+
+#hashField {
+	margin-right: 8px;
+	width: 210px;
+}
+
+.otherPasswords {
+	width: 100%;
+}
+
+.otherPasswords li, .passwordList li {
+	display: inline-flex;
+	display: -webkit-inline-flex;
+	list-style-type: none;
+	padding-right: 20px;
+}
+

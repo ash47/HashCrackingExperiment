@@ -1,6 +1,6 @@
 // Crypto Imports
-const lmhash = require('smbhash').lmhash;
-const nthash = require('smbhash').nthash;
+const lmhash = require('./lib/smbhash.js').lmhash;
+const nthash = require('./lib/smbhash.js').nthash;
 const crypto = require('crypto');
 
 // IO Imports
@@ -11,14 +11,16 @@ const stream = require('stream');
 // Webserver Imports
 const express = require('express');
 const app = express();
+const http = require('http');
+const https = require('https');
+
+const config = require('./config.json');
 
 // Config
-const serverPort = 8080;
 const hashExtension = '.htm';
-const wordsPerPage = 25;
+const wordsPerPage = 50;
 
 // Used for generation of other URLs
-const allowedChars = /^[A-Za-z0-9 !@#$%^&*()-_=+\[\]{}|\\;:'"?/,.<>`~]+$/g;
 const extraChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 !@#$%^&*()-_=+[]{}|\\;:\'"?/,.<>`~';
 
 // List of wordlists we support
@@ -28,6 +30,7 @@ const wordLists = {
 
 // Read in the common headers
 const commonHead = fs.readFileSync(__dirname + '/lib/common_head.htm');
+const commonFooter = fs.readFileSync(__dirname + '/lib/footer.htm');
 
 // Static files
 app.use(express.static('www'))
@@ -61,7 +64,7 @@ app.get('/wordlists/:wordList/:startEntry/passwords.htm', function(req, res, nex
 	var outstream = new stream();
 	var rl = readline.createInterface(instream, outstream);
 
-	var toOutput = '<html><head>' + commonHead + '</head><body><h1>Passwords in ' + wordList + ': ' + startEntry + ' - ' + (nextPasswordsPage - 1) + '</h1><ul>'
+	var toOutput = '<html><head>' + commonHead + '</head><body><div id="content"><h1>Passwords in ' + wordList + ': ' + startEntry + ' - ' + (nextPasswordsPage - 1) + '</h1><div class="passwordList"><ul>'
 	var lineNumber = 0;
 	rl.on('line', function(line) {
 		if(++lineNumber > startEntry) {
@@ -81,8 +84,9 @@ app.get('/wordlists/:wordList/:startEntry/passwords.htm', function(req, res, nex
 			nextPasswordsPage = 0;
 		}
 
-		toOutput += '</ul><a href="/wordlists/' + wordList + '/' + nextPasswordsPage + '/passwords.htm" target="_blank">More Passwords</a>'
-		toOutput += '</body></html>'
+		toOutput += '</ul></div><a href="/wordlists/' + wordList + '/' + nextPasswordsPage + '/passwords.htm" target="_blank">More Passwords</a>'
+		toOutput += commonFooter;
+		toOutput += '</div></body></html>'
 		res.end(toOutput);
 	});
 });
@@ -93,7 +97,7 @@ app.use(function(req, res, next) {
 
 	if(url == '/') {
 		// Root page
-		res.end('<html><head>' + commonHead + '</head><body><h1>wordLists</h1><a href="/wordlists/rockyou/0/passwords.htm">RockYou</a>' + otherPasswords('') + '</body></html>');
+		res.end('<html><head>' + commonHead + '</head><body><div id="content"><h1>Word Lists</h1><a href="/wordlists/rockyou/0/passwords.htm">RockYou</a>' + otherPasswords('') + commonFooter + '</div></body></html>');
 		return;
 	}
 
@@ -102,13 +106,15 @@ app.use(function(req, res, next) {
 
 		// Ensure it is valid
 		try {
-			toMatch = decodeURIComponent(url.substr(1, url.length - hashExtension.length - 1));
+			toMatch = '' + decodeURIComponent(url.substr(1, url.length - hashExtension.length - 1));
 		} catch(e) {
 			next();
 			return;
 		}
 
+		var allowedChars = /^[A-Za-z0-9 !@#$%^&*()-_=+\[\]{}|\\;:'"?/,.<>`~]+$/g;
 		if(!allowedChars.test(toMatch)) {
+			console.log('test failed: ' + toMatch);
 			next();
 			return;
 		}
@@ -117,9 +123,21 @@ app.use(function(req, res, next) {
 
 		var outputResHashes = '';
 
-		var lmHash = lmhash(toMatch).toLowerCase();
-		var ntHash = nthash(toMatch).toLowerCase();
+		var lmHash = '';
+		var ntHash = '';
 
+		try {
+			lmHash = lmhash(toMatch).toLowerCase();
+		} catch(e) {
+			// Do nothing
+		}
+
+		try {
+			ntHash = nthash(toMatch).toLowerCase();
+		} catch(e) {
+			// Do nothing
+		}
+		
 		outputResHashes += '<table class="table table-striped">';
 		outputResHashes += '<tr><th>Input</th><td>' + htmlEncode(toMatch) + '</td></tr>';
 		outputResHashes += '<tr><th>NTLM</th><td>' + lmHash + ':' + ntHash + '</td></tr>';
@@ -129,10 +147,11 @@ app.use(function(req, res, next) {
 		outputResHashes += '<tr><th>SHA-256</th><td>' + sha256(toMatch) + '</td></tr>';
 		outputResHashes += '</table>';
 
-		var outputBody = '<html><head>' + commonHead + '</head><body>';
+		var outputBody = '<html><head>' + commonHead + '</head><body><div id="content">';
 		outputBody += outputResHashes;
 		outputBody += otherPasswords(toMatch);
-		outputBody += '</body></html>';
+		outputBody += commonFooter;
+		outputBody += '</div></body></html>';
 
 		res.end(outputBody);
 		return;
@@ -141,17 +160,26 @@ app.use(function(req, res, next) {
 	next();
 });
 
-app.listen(serverPort, function () {
-	console.log('Server listening on port ' + serverPort);
+http.createServer(app).listen(config.port, function () {
+	console.log('Server listening on port ' + config.port);
+});
+
+https.createServer({
+	key: fs.readFileSync('creds/creds.key', 'utf8'),
+	cert: fs.readFileSync('creds/creds.crt', 'utf8')
+}, app).listen(config.sslPort, function () {
+	console.log('Server listening on SSL port ' + config.sslPort);
 });
 
 // Generates a list of suggested other passwords
 function otherPasswords(data) {
 	var outputOtherPasswords = '';
 	outputOtherPasswords += '<div>';
+	outputOtherPasswords += '<h1>Hash a Password</h1>';
+	outputOtherPasswords += '<div id="hashPassword"></div>';
 	outputOtherPasswords += '<h1>Other Passwords</h1>';
 
-	outputOtherPasswords += '<ul>';
+	outputOtherPasswords += '<div class="otherPasswords"><ul>';
 
 	if(data.length >= 2) {
 		var prevPassword = data.substr(0, data.length - 1);
@@ -165,6 +193,7 @@ function otherPasswords(data) {
 	}
 
 	outputOtherPasswords += '</ul>';
+	outputOtherPasswords += '</div>';
 	outputOtherPasswords += '</div>';
 
 	return outputOtherPasswords;
