@@ -67,7 +67,8 @@ app.get('/wordlists/:wordList/:startEntry/passwords.htm', function(req, res, nex
 	var outstream = new stream();
 	var rl = readline.createInterface(instream, outstream);
 
-	var toOutput = '<html><head>' + commonHead + '</head><body><div id="content"><h1>Passwords in ' + wordList + ': ' + startEntry + ' - ' + (nextPasswordsPage - 1) + '</h1><div class="passwordList"><ul>'
+	var passwordsInText = htmlEncode(wordList) + ': ' + htmlEncode(startEntry) + ' - ' + htmlEncode(nextPasswordsPage - 1);
+	var toOutput = '<html><head>' + commonHead + '<title>' + passwordsInText + ' - SpeedHasher.com</title></head><body><div id="content"><h1>Passwords in ' + passwordsInText + '</h1><div class="passwordList"><ul>';
 	var lineNumber = 0;
 	rl.on('line', function(line) {
 		if(++lineNumber > startEntry) {
@@ -87,7 +88,7 @@ app.get('/wordlists/:wordList/:startEntry/passwords.htm', function(req, res, nex
 			nextPasswordsPage = 0;
 		}
 
-		toOutput += '</ul></div><a href="/wordlists/' + wordList + '/' + nextPasswordsPage + '/passwords.htm" target="_blank">More Passwords</a>'
+		toOutput += '</ul></div><a href="/wordlists/' + htmlEncode(wordList) + '/' + htmlEncode(nextPasswordsPage) + '/passwords.htm" target="_blank">More Passwords</a>'
 		toOutput += commonFooter;
 		toOutput += '</div></body></html>'
 		res.end(toOutput);
@@ -98,11 +99,11 @@ app.get('/wordlists/:wordList/:startEntry/passwords.htm', function(req, res, nex
 app.use(function(req, res, next) {
 	var url = req.url;
 
-	console.log(url);
+	console.log(url, req.connection.remoteAddress, req.headers['user-agent']);
 
 	if(url == '/') {
 		// Root page
-		res.end('<html><head>' + commonHead + '</head><body><div id="content"><h1>Word Lists</h1><a href="/wordlists/rockyou/0/passwords.htm">RockYou</a>' + otherPasswords('') + commonFooter + '</div></body></html>');
+		res.end('<html><head>' + commonHead + '<title>Hashing Experiment - SpeedHasher.com</title></head><body><div id="content"><h1>Word Lists</h1><a href="/wordlists/rockyou/0/passwords.htm">RockYou</a>' + otherPasswords('') + commonFooter + '</div></body></html>');
 		return;
 	}
 
@@ -152,7 +153,7 @@ app.use(function(req, res, next) {
 		outputResHashes += '<tr><th>SHA-256</th><td>' + sha256(toMatch) + '</td></tr>';
 		outputResHashes += '</table>';
 
-		var outputBody = '<html><head>' + commonHead + '</head><body><div id="content">';
+		var outputBody = '<html><head>' + commonHead + '<title>Hash of ' + htmlEncode(toMatch) + ' - SpeedHasher.com</title></head><body><div id="content">';
 		outputBody += outputResHashes;
 		outputBody += otherPasswords(toMatch);
 		outputBody += commonFooter;
@@ -211,6 +212,8 @@ function otherPasswords(data) {
 
 // HTML Encodes a string
 function htmlEncode(data) {
+	data = '' + data;
+
 	return data
 		.replace(/&/g, '&amp;')
         .replace(/"/g, '&quot;')
