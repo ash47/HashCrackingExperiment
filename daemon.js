@@ -20,6 +20,9 @@ const config = require('./config.json');
 const hashExtension = '.htm';
 const wordsPerPage = 50;
 
+// Max password length
+const maxIndexSize = 4;
+
 // Used for generation of other URLs
 const extraChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 !@#$%^&*()-_=+[]{}|\\;:\'"?/,.<>`~';
 
@@ -94,6 +97,8 @@ app.get('/wordlists/:wordList/:startEntry/passwords.htm', function(req, res, nex
 // Mapping for hashes
 app.use(function(req, res, next) {
 	var url = req.url;
+
+	console.log(url);
 
 	if(url == '/') {
 		// Root page
@@ -173,7 +178,7 @@ https.createServer({
 
 // Generates a list of suggested other passwords
 function otherPasswords(data) {
-	if(data.length >= 32) {
+	if(data.length >= maxIndexSize) {
 		// Make a suggestion to go back to the start
 		data = '';
 	}
