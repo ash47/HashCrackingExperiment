@@ -173,6 +173,11 @@ https.createServer({
 
 // Generates a list of suggested other passwords
 function otherPasswords(data) {
+	if(data.length >= 32) {
+		// Make a suggestion to go back to the start
+		data = '';
+	}
+
 	var outputOtherPasswords = '';
 	outputOtherPasswords += '<div>';
 	outputOtherPasswords += '<h1>Hash a Password</h1>';
