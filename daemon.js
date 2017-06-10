@@ -208,7 +208,7 @@ function otherPasswords(data, ignoreMaxLength) {
 
 	if(data.length >= maxIndexSize && !ignoreMaxLength) {
 		// Make a suggestion to go back to the start
-		data = '';
+		data = data.substr(0, maxIndexSize-1);
 	}
 
 	for(var i=0; i<extraChars.length; ++i) {
