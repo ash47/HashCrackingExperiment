@@ -35,6 +35,18 @@ const wordLists = {
 const commonHead = fs.readFileSync(__dirname + '/lib/common_head.htm');
 const commonFooter = fs.readFileSync(__dirname + '/lib/footer.htm');
 
+// Remove x-powered-by
+app.disable('x-powered-by');
+
+// Add protection headers
+app.use(function(req, res, next) {
+	// Add headers
+	res.setHeader('X-Frame-Options', 'DENY');
+
+	// Continue
+	next();
+});
+
 // Static files
 app.use(express.static('www'))
 
