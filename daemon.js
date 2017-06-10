@@ -18,7 +18,7 @@ const config = require('./config.json');
 
 // Config
 const hashExtension = '.htm';
-const wordsPerPage = 50;
+const wordsPerPage = 100;
 
 // Max password length
 const maxIndexSize = 4;
@@ -68,12 +68,13 @@ app.get('/wordlists/:wordList/:startEntry/passwords.htm', function(req, res, nex
 	var rl = readline.createInterface(instream, outstream);
 
 	var passwordsInText = htmlEncode(wordList) + ': ' + htmlEncode(startEntry) + ' - ' + htmlEncode(nextPasswordsPage - 1);
-	var toOutput = '<html><head>' + commonHead + '<title>' + passwordsInText + ' - SpeedHasher.com</title></head><body><div id="content"><h1>Passwords in ' + passwordsInText + '</h1><div class="passwordList"><ul>';
+	var toOutput = '<html><head>' + commonHead + '<title>' + passwordsInText + ' - SpeedHasher.com</title></head><body><div id="content"><h1>Passwords in ' + passwordsInText + '</h1><div class="passwordList">';
 	var lineNumber = 0;
 	rl.on('line', function(line) {
 		if(++lineNumber > startEntry) {
 			if(lineNumber <= startEntry + wordsPerPage) {
-				toOutput += '<li><a href="/' + encodeURIComponent(line) + '.htm" target="_blank">' + htmlEncode(line) + '</a></li>';
+				//toOutput += '<li><a href="/' + encodeURIComponent(line) + '.htm" target="_blank">' + htmlEncode(line) + '</a></li>';
+				toOutput += calcHashes(line);
 			} else {
 				// Done
 				rl.close();
@@ -88,7 +89,7 @@ app.get('/wordlists/:wordList/:startEntry/passwords.htm', function(req, res, nex
 			nextPasswordsPage = 0;
 		}
 
-		toOutput += '</ul></div><a href="/wordlists/' + htmlEncode(wordList) + '/' + htmlEncode(nextPasswordsPage) + '/passwords.htm" target="_blank">More Passwords</a>'
+		toOutput += '</div><a href="/wordlists/' + htmlEncode(wordList) + '/' + htmlEncode(nextPasswordsPage) + '/passwords.htm" target="_blank">More Passwords</a>'
 		toOutput += commonFooter;
 		toOutput += '</div></body></html>'
 		res.end(toOutput);
@@ -99,7 +100,7 @@ app.get('/wordlists/:wordList/:startEntry/passwords.htm', function(req, res, nex
 app.use(function(req, res, next) {
 	var url = req.url;
 
-	console.log(url, req.connection.remoteAddress, req.headers['user-agent']);
+	console.log(getDateTime(), url, req.connection.remoteAddress, req.headers['user-agent']);
 
 	if(url == '/') {
 		// Root page
@@ -127,34 +128,8 @@ app.use(function(req, res, next) {
 
 		res.status(200);
 
-		var outputResHashes = '';
-
-		var lmHash = '';
-		var ntHash = '';
-
-		try {
-			lmHash = lmhash(toMatch).toLowerCase();
-		} catch(e) {
-			// Do nothing
-		}
-
-		try {
-			ntHash = nthash(toMatch).toLowerCase();
-		} catch(e) {
-			// Do nothing
-		}
-		
-		outputResHashes += '<table class="table table-striped">';
-		outputResHashes += '<tr><th>Input</th><td>' + htmlEncode(toMatch) + '</td></tr>';
-		outputResHashes += '<tr><th>NTLM</th><td>' + lmHash + ':' + ntHash + '</td></tr>';
-		outputResHashes += '<tr><th>NTLM (no LM)</th><td>aad3b435b51404eeaad3b435b51404ee:' + ntHash + '</td></tr>';
-		outputResHashes += '<tr><th>MD5</th><td>' + md5(toMatch) + '</td></tr>';
-		outputResHashes += '<tr><th>SHA-1</th><td>' + sha1(toMatch) + '</td></tr>';
-		outputResHashes += '<tr><th>SHA-256</th><td>' + sha256(toMatch) + '</td></tr>';
-		outputResHashes += '</table>';
-
 		var outputBody = '<html><head>' + commonHead + '<title>Hash of ' + htmlEncode(toMatch) + ' - SpeedHasher.com</title></head><body><div id="content">';
-		outputBody += outputResHashes;
+		outputBody += calcHashes(toMatch);
 		outputBody += otherPasswords(toMatch);
 		outputBody += commonFooter;
 		outputBody += '</div></body></html>';
@@ -177,6 +152,37 @@ https.createServer({
 	console.log('Server listening on SSL port ' + config.sslPort);
 });
 
+// Calculates the hashes of a password
+function calcHashes(data) {
+	var outputResHashes = '';
+
+	var lmHash = '';
+	var ntHash = '';
+
+	try {
+		lmHash = lmhash(data).toLowerCase();
+	} catch(e) {
+		// Do nothing
+	}
+
+	try {
+		ntHash = nthash(data).toLowerCase();
+	} catch(e) {
+		// Do nothing
+	}
+	
+	outputResHashes += '<table class="table table-striped hashTable">';
+	outputResHashes += '<tr><th>Input</th><td><a href="/' + encodeURIComponent(data) + '.htm" target="_blank">' + htmlEncode(data) + '</a></td></tr>';
+	outputResHashes += '<tr><th>NTLM</th><td>' + lmHash + ':' + ntHash + '</td></tr>';
+	outputResHashes += '<tr><th>NTLM (no LM)</th><td>aad3b435b51404eeaad3b435b51404ee:' + ntHash + '</td></tr>';
+	outputResHashes += '<tr><th>MD5</th><td>' + md5(data) + '</td></tr>';
+	outputResHashes += '<tr><th>SHA-1</th><td>' + sha1(data) + '</td></tr>';
+	outputResHashes += '<tr><th>SHA-256</th><td>' + sha256(data) + '</td></tr>';
+	outputResHashes += '</table>';
+
+	return outputResHashes;
+}
+
 // Generates a list of suggested other passwords
 function otherPasswords(data) {
 	if(data.length >= maxIndexSize) {
@@ -190,24 +196,50 @@ function otherPasswords(data) {
 	outputOtherPasswords += '<div id="hashPassword"></div>';
 	outputOtherPasswords += '<h1>Other Passwords</h1>';
 
-	outputOtherPasswords += '<div class="otherPasswords"><ul>';
+	outputOtherPasswords += '<div class="otherPasswords">';
+	//outputOtherPasswords += '<div class="otherPasswords"><ul>';
 
 	if(data.length >= 2) {
 		var prevPassword = data.substr(0, data.length - 1);
-		outputOtherPasswords += '<li><a href="/' + encodeURIComponent(prevPassword) + '.htm" target="_blank">' + htmlEncode(prevPassword) + '</a></li>'
+		//outputOtherPasswords += '<li><a href="/' + encodeURIComponent(prevPassword) + '.htm" target="_blank">' + htmlEncode(prevPassword) + '</a></li>'
+		outputOtherPasswords += calcHashes(prevPassword);
 	}
 
 	for(var i=0; i<extraChars.length; ++i) {
 		var nextPassword = data + extraChars[i];
 
-		outputOtherPasswords += '<li><a href="/' + encodeURIComponent(nextPassword) + '.htm" target="_blank">' + htmlEncode(nextPassword) + '</a></li>'
+		//outputOtherPasswords += '<li><a href="/' + encodeURIComponent(nextPassword) + '.htm" target="_blank">' + htmlEncode(nextPassword) + '</a></li>'
+		outputOtherPasswords += calcHashes(nextPassword);
 	}
 
-	outputOtherPasswords += '</ul>';
+	//outputOtherPasswords += '</ul>';
 	outputOtherPasswords += '</div>';
 	outputOtherPasswords += '</div>';
 
 	return outputOtherPasswords;
+}
+
+function getDateTime() {
+    var date = new Date();
+
+    var hour = date.getHours();
+    hour = (hour < 10 ? '0' : '') + hour;
+
+    var min  = date.getMinutes();
+    min = (min < 10 ? '0' : '') + min;
+
+    var sec  = date.getSeconds();
+    sec = (sec < 10 ? '0' : '') + sec;
+
+    var year = date.getFullYear();
+
+    var month = date.getMonth() + 1;
+    month = (month < 10 ? '0' : '') + month;
+
+    var day  = date.getDate();
+    day = (day < 10 ? '0' : '') + day;
+
+    return year + '/' + month + '/' + day + ' ' + hour + ':' + min + ':' + sec;
 }
 
 // HTML Encodes a string
