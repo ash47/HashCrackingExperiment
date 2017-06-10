@@ -3,7 +3,7 @@ $(document).ready(function() {
 		var toHash = $('#hashField').val();
 
 		if(toHash.length > 0) {
-			window.location = '/' + encodeURIComponent(toHash) + '.htm';
+			window.location = '/' + encodeURIComponent(toHash) + '.htm?ignoreMaxLength=true';
 		}
 	};
 
