@@ -86,6 +86,25 @@ app.get('/sitemaps/:name.txt', function(req, res, next) {
 		return;
 	}
 
+	if(sitemapName == 'level2') {
+		res.write(websiteRoot);
+
+		for(var i=0; i<extraChars.length; ++i) {
+			var theChar = extraChars[i];
+
+			res.write('\r\n' + websiteRoot + encodeURIComponent(theChar) + hashExtension);
+
+			for(var j=0; j<extraChars.length; ++j) {
+				var theChar2 = extraChars[j];
+
+				res.write('\r\n' + websiteRoot + encodeURIComponent(theChar) + encodeURIComponent(theChar2) + hashExtension);
+			}
+		}
+
+		res.end();
+		return;
+	}
+
 	res.end();
 });
 
@@ -235,7 +254,7 @@ function calcHashes(data, ignoreMaxLength) {
 	var ignoreText = ignoreMaxLength ? '?ignoreMaxLength=true' : '';
 	
 	outputResHashes += '<table class="table table-striped hashTable">';
-	outputResHashes += '<tr><th>Input</th><td><a href="/' + encodeURIComponent(data) + '.htm' + ignoreText + '" target="_blank">' + htmlEncode(data) + '</a></td></tr>';
+	outputResHashes += '<tr><th>Input</th><td><a href="/' + encodeURIComponent(data) + hashExtension + ignoreText + '" target="_blank">' + htmlEncode(data) + '</a></td></tr>';
 	outputResHashes += '<tr><th>NTLM</th><td>' + lmHash + ':' + ntHash + '</td></tr>';
 	outputResHashes += '<tr><th>NTLM (no LM)</th><td>aad3b435b51404eeaad3b435b51404ee:' + ntHash + '</td></tr>';
 	outputResHashes += '<tr><th>MD5</th><td>' + md5(data) + '</td></tr>';
