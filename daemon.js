@@ -18,7 +18,8 @@ const config = require('./config.json');
 
 // Config
 const hashExtension = '.htm';
-const wordsPerPage = 100;
+const wordsPerPage = 1000;
+var websiteRoot = 'https://speedhasher.com/';
 
 // Max password length
 const maxIndexSize = 4;
@@ -43,6 +44,9 @@ app.use(function(req, res, next) {
 	// Add headers
 	res.setHeader('X-Frame-Options', 'DENY');
 
+	// Logging
+	console.log(getDateTime(), req.path, req.connection.remoteAddress, req.headers['user-agent']);
+
 	// Continue
 	next();
 });
@@ -50,22 +54,50 @@ app.use(function(req, res, next) {
 // Static files
 app.use(express.static('www'))
 
-// Mapping for wordlists
-app.get('/wordlists/:wordList/:startEntry/passwords.htm', function(req, res, next) {
-	var wordList = req.params.wordList;
-	var startEntry = req.params.startEntry;
+// Mapping for sitemaps (xml)
+app.get('/sitemaps/:name.xml', function(req, res, next) {
+	var sitemapName = req.params.name;
 
-	// Ensure the wordlist actually exists
-	if(!wordLists[wordList]) {
-		next();
+	// Root one
+	if(sitemapName == 'root') {
+
+	}
+
+	res.end();
+});
+
+// Mapping for sitemaps (txt)
+app.get('/sitemaps/:name.txt', function(req, res, next) {
+	var sitemapName = req.params.name;
+
+	if(sitemapName == 'rockyou') {
+		var maxWords = 14344391;
+
+		var toOutput = '';
+
+		for(var i=0; i * wordsPerPage<maxWords; ++i) {
+			if(i != 0) {
+				res.write('\r\n');
+			}
+			res.write(websiteRoot + 'wordlists/rockyou/' + i + '/passwords.htm');
+		}
+
+		res.end();
 		return;
 	}
 
-	try {
-		// Try to parse it
-		startEntry = parseInt(startEntry);
+	res.end();
+});
 
-		if(startEntry < 0) {
+// Mapping for wordlists
+app.get('/wordlists/:wordList/:pageNumber/passwords.htm', function(req, res, next) {
+	var wordList = req.params.wordList;
+	var pageNumber = 0;
+
+	try {
+		pageNumber = parseInt(req.params.pageNumber);
+
+		if(pageNumber < 0) {
 			throw new Error('Number less than 0');
 		}
 	} catch(e) {
@@ -73,22 +105,28 @@ app.get('/wordlists/:wordList/:startEntry/passwords.htm', function(req, res, nex
 		return;
 	}
 
-	var nextPasswordsPage = (startEntry + wordsPerPage);
+	var startEntry = pageNumber * wordsPerPage;
+
+	// Ensure the wordlist actually exists
+	if(!wordLists[wordList]) {
+		next();
+		return;
+	}
 
 	var instream = fs.createReadStream(wordLists[wordList]);
 	var outstream = new stream();
 	var rl = readline.createInterface(instream, outstream);
 
-	var passwordsInText = htmlEncode(wordList) + ': ' + htmlEncode(startEntry) + ' - ' + htmlEncode(nextPasswordsPage - 1);
-	var toOutput = '<html><head>' + commonHead + '<title>' + passwordsInText + ' - SpeedHasher.com</title></head><body><div id="content"><h1>Passwords in ' + passwordsInText + '</h1><div class="passwordList">';
+	var passwordOutput = '';
 	var lineNumber = 0;
 	rl.on('line', function(line) {
 		if(++lineNumber > startEntry) {
 			if(lineNumber <= startEntry + wordsPerPage) {
 				//toOutput += '<li><a href="/' + encodeURIComponent(line) + '.htm" target="_blank">' + htmlEncode(line) + '</a></li>';
-				toOutput += calcHashes(line, true);
+				passwordOutput += calcHashes(line, true);
 			} else {
 				// Done
+				rl.pause();
 				rl.close();
 			}
 		}
@@ -96,12 +134,21 @@ app.get('/wordlists/:wordList/:startEntry/passwords.htm', function(req, res, nex
 
 	rl.on('close', function() {
 		// Did we actually output enough passwords?
+		var nextPageNumber = pageNumber + 1;
 		if(lineNumber < startEntry + wordsPerPage) {
 			// Next page = 0
-			nextPasswordsPage = 0;
+			nextPageNumber = 0;
+
+			if(lineNumber < startEntry) {
+				startEntry = -1;
+				lineNumber = 1;
+			}
 		}
 
-		toOutput += '</div><a href="/wordlists/' + htmlEncode(wordList) + '/' + htmlEncode(nextPasswordsPage) + '/passwords.htm" target="_blank">More Passwords</a>'
+		var passwordsInText = htmlEncode(wordList) + ': ' + htmlEncode(startEntry+1) + ' - ' + htmlEncode(lineNumber - 1);
+		var toOutput = '<html><head>' + commonHead + '<title>' + passwordsInText + ' - SpeedHasher.com</title></head><body><div id="content"><h1>Passwords in ' + passwordsInText + '</h1><div class="passwordList">';
+		toOutput += passwordOutput;
+		toOutput += '</div><a href="/wordlists/' + htmlEncode(wordList) + '/' + htmlEncode(nextPageNumber) + '/passwords.htm" target="_blank">More Passwords</a>'
 		toOutput += commonFooter;
 		toOutput += '</div></body></html>'
 		res.end(toOutput);
@@ -111,8 +158,6 @@ app.get('/wordlists/:wordList/:startEntry/passwords.htm', function(req, res, nex
 // Mapping for hashes
 app.use(function(req, res, next) {
 	var url = req.path;
-
-	console.log(getDateTime(), url, req.connection.remoteAddress, req.headers['user-agent']);
 
 	if(url == '/') {
 		// Root page
