@@ -1,2 +1,3 @@
 User-agent: *
 Allow: /
+Sitemap: https://speedhasher.com/sitemaps/index.xml

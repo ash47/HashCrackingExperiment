@@ -45,7 +45,7 @@ app.use(function(req, res, next) {
 	res.setHeader('X-Frame-Options', 'DENY');
 
 	// Logging
-	console.log(getDateTime(), req.path, req.connection.remoteAddress, req.headers['user-agent']);
+	console.log(getDateTime(), req.url, req.connection.remoteAddress, req.headers['user-agent']);
 
 	// Continue
 	next();
@@ -63,7 +63,7 @@ app.get('/sitemaps/:name.xml', function(req, res, next) {
 
 	}
 
-	res.end();
+	next();
 });
 
 // Mapping for sitemaps (txt)
@@ -105,7 +105,7 @@ app.get('/sitemaps/:name.txt', function(req, res, next) {
 		return;
 	}
 
-	res.end();
+	next();
 });
 
 // Mapping for wordlists
