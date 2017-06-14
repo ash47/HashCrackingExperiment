@@ -1,4 +1,4 @@
-# HashCrackingWithGoogle
+# Hash Cracking Experiment
 A thought experiment to see if it's possible to leverage google's indexing service to crack hashes.
 
  - The goal of this project was to make a dynamically generated website, where the pages of the website contain every single password that could exist.
@@ -8,5 +8,9 @@ A thought experiment to see if it's possible to leverage google's indexing servi
  - The hash of every password that Google indexes can be cracked using this website.
 
 The website is deployed here: [http://SpeedHasher.com](http://speedhasher.com)
+
+You can view the current indexing progress here: [SpeedHasher.com on Google](https://www.google.com.au/search?q=site%3Aspeedhasher.com)
+
+Looks like Yandex loves the website: [SpeedHasher.com on Yandex](https://yandex.com/search/?text=site%3Aspeedhasher.com)
 
 Let's see how much of it Google indexes.
