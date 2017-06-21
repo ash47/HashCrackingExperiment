@@ -174,56 +174,89 @@ app.get('/wordlists/:wordList/:pageNumber/passwords.htm', function(req, res, nex
 	});
 });
 
-// Mapping for hashes
-app.use(function(req, res, next) {
-	var url = req.path;
-
-	if(url == '/') {
-		// Root page
-		res.end('<html><head>' + commonHead + '<title>Hashing Experiment - SpeedHasher.com</title></head><body><div id="content"><h1>Word Lists</h1><a href="/wordlists/rockyou/0/passwords.htm">RockYou</a>' + otherPasswords('') + commonFooter + '</div></body></html>');
+// Mapping for rules
+app.get('/rules/:toHash.htm', function(req, res, next) {
+	var toHash = req.params.toHash;
+	
+	var allowedChars = /^[A-Za-z0-9 !@#$%^&*()-_=+\[\]{}|\\;:'"?/,.<>`~]+$/g;
+	if(!allowedChars.test(toHash)) {
+		next();
 		return;
 	}
 
-	if(url.lastIndexOf(hashExtension) == url.length - hashExtension.length) {
-		var toMatch;
+	// Should we ignore the max length?
+	var ignoreMaxLength = req.query.ignoreMaxLength != null;
 
-		// Ensure it is valid
-		try {
-			toMatch = '' + decodeURIComponent(url.substr(1, url.length - hashExtension.length - 1));
-		} catch(e) {
-			next();
-			return;
-		}
-
-		var allowedChars = /^[A-Za-z0-9 !@#$%^&*()-_=+\[\]{}|\\;:'"?/,.<>`~]+$/g;
-		if(!allowedChars.test(toMatch)) {
-			console.log('test failed: ' + toMatch);
-			next();
-			return;
-		}
-
-		res.status(200);
-
-		// Should we ignore the max length?
-		var ignoreMaxLength = req.query.ignoreMaxLength != null;
-
-		var outputBody = '<html><head>' + commonHead + '<title>Hash of ' + htmlEncode(toMatch) + ' - SpeedHasher.com</title></head><body><div id="content">';
-		outputBody += calcHashes(toMatch, true);
-		outputBody += otherPasswords(toMatch, ignoreMaxLength);
-		outputBody += commonFooter;
-		outputBody += '</div></body></html>';
-
-		res.end(outputBody);
-		return;
+	var outputBody = '<html><head>' + commonHead + '<title>Hash of ' + htmlEncode(toHash) + ' - SpeedHasher.com</title></head><body><div id="content">';
+	outputBody += calcHashes(toHash, true);
+	
+	// Add the backwards link
+	if(toHash.length >= 2) {
+		var prevPassword = toHash.substr(0, toHash.length - 1);
+		outputBody += calcHashes(prevPassword, true);
 	}
 
-	next();
+	// Add the togglecase rules
+	outputBody += rulesToggleCase(toHash, ignoreMaxLength);
+
+
+	outputBody += commonFooter;
+	outputBody += '</div></body></html>';
+
+	res.end(outputBody);
 });
 
+// Mapping for standard hashing
+app.get('/:toHash.htm', function(req, res, next) {
+	var toHash = req.params.toHash;
+	
+	var allowedChars = /^[A-Za-z0-9 !@#$%^&*()-_=+\[\]{}|\\;:'"?/,.<>`~]+$/g;
+	if(!allowedChars.test(toHash)) {
+		next();
+		return;
+	}
+
+	// Should we ignore the max length?
+	var ignoreMaxLength = req.query.ignoreMaxLength != null;
+
+	var outputBody = '<html><head>' + commonHead + '<title>Hash of ' + htmlEncode(toHash) + ' - SpeedHasher.com</title></head><body><div id="content">';
+	outputBody += calcHashes(toHash, true);
+	outputBody += otherPasswords(toHash, ignoreMaxLength);
+	outputBody += commonFooter;
+	outputBody += '</div></body></html>';
+
+	res.end(outputBody);
+});
+
+// Landing page
+app.get('/', function(req, res, next) {
+	res.end(
+		'<html><head>' + 
+		commonHead + 
+		'<title>Hashing Experiment - SpeedHasher.com</title></head>' +
+		'<body><div id="content">' + 
+		'<h1>Word Lists</h1>' +
+		'<a href="/wordlists/rockyou/0/passwords.htm">RockYou</a>' +
+		otherPasswords('') +
+		commonFooter +
+		'</div></body></html>'
+	);
+});
+
+// Error handler
+app.use(function(err, req, res, next) {
+	console.log(err);
+
+	// Send a 404
+	res.status(404).end('404');
+})
+
+// Create the HTTP server
 http.createServer(app).listen(config.port, function () {
 	console.log('Server listening on port ' + config.port);
 });
 
+// Create the HTTPS server
 https.createServer({
 	key: fs.readFileSync('creds/creds.key', 'utf8'),
 	cert: fs.readFileSync('creds/creds.crt', 'utf8')
@@ -305,6 +338,46 @@ function otherPasswords(data, ignoreMaxLength) {
 	outputOtherPasswords += '</div>';
 
 	return outputOtherPasswords;
+}
+
+// Runs a toggle case rule on a word:
+function rulesToggleCase(data, ignoreMaxLength, upto) {
+	if(upto == null) {
+		upto = data.length - 1;
+		if(upto > 9) {
+			upto = 9;
+		}
+	}
+
+	// If we are on -1, we are done
+	if(upto == -1) return;
+
+	// Grab my char
+	var myChar = data[upto];
+
+	// Is this an alpha character?
+	if(!myChar.match(/[a-z]/i)) {
+		// Nope, recurse
+		return rulesToggleCase(data, ignoreMaxLength, upto - 1);
+	}
+
+	// Convert our character
+	var newChar = myChar.toLowerCase();
+	if(newChar == myChar) {
+		newChar = myChar.toUpperCase();
+	}
+
+	// Grab the new string
+	var newString = data.substring(0, upto) + newChar + data.substring(upto + 1);
+
+	// Calculate hashes
+	var myOutput = calcHashes(newString);
+
+	// Recurse
+	myOutput += rulesToggleCase(newString, ignoreMaxLength, upto - 1);
+	myOutput += rulesToggleCase(data, ignoreMaxLength, upto - 1);
+
+	return myOutput;
 }
 
 function getDateTime() {
