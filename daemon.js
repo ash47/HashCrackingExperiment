@@ -24,6 +24,9 @@ var websiteRoot = 'https://speedhasher.com/';
 // Max password length
 const maxIndexSize = 4;
 
+// Max number of toggles (real is one more than this)
+var maxToggleLetters = 9;
+
 // Used for generation of other URLs
 const extraChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 !@#$%^&*()-_=+[]{}|\\;:\'"?/,.<>`~';
 
@@ -86,6 +89,22 @@ app.get('/sitemaps/:name.txt', function(req, res, next) {
 		return;
 	}
 
+	if(sitemapName == 'rockyou_rules') {
+		var maxWords = 14344391;
+
+		var toOutput = '';
+
+		for(var i=0; i * wordsPerPage<maxWords; ++i) {
+			if(i != 0) {
+				res.write('\r\n');
+			}
+			res.write(websiteRoot + 'wordlists/rules/rockyou/' + i + '/passwords.htm');
+		}
+
+		res.end();
+		return;
+	}
+
 	if(sitemapName == 'level2') {
 		res.write(websiteRoot);
 
@@ -109,7 +128,17 @@ app.get('/sitemaps/:name.txt', function(req, res, next) {
 });
 
 // Mapping for wordlists
+app.get('/wordlists/rules/:wordList/:pageNumber/passwords.htm', function(req, res, next) {
+	// Handle the request, add rules
+	wordlistHandler(req, res, next, true);
+});
+
 app.get('/wordlists/:wordList/:pageNumber/passwords.htm', function(req, res, next) {
+	// Handle the request
+	wordlistHandler(req, res, next);
+});
+
+function wordlistHandler(req, res, next, useRules) {
 	var wordList = req.params.wordList;
 	var pageNumber = 0;
 
@@ -122,6 +151,11 @@ app.get('/wordlists/:wordList/:pageNumber/passwords.htm', function(req, res, nex
 	} catch(e) {
 		next();
 		return;
+	}
+
+	var specialText = '';
+	if(useRules) {
+		specialText = '?rules=true';
 	}
 
 	var startEntry = pageNumber * wordsPerPage;
@@ -142,7 +176,7 @@ app.get('/wordlists/:wordList/:pageNumber/passwords.htm', function(req, res, nex
 		if(++lineNumber > startEntry) {
 			if(lineNumber <= startEntry + wordsPerPage) {
 				//toOutput += '<li><a href="/' + encodeURIComponent(line) + '.htm" target="_blank">' + htmlEncode(line) + '</a></li>';
-				passwordOutput += calcHashes(line, true, true);
+				passwordOutput += calcHashes(line, true, specialText);
 			} else {
 				// Done
 				rl.pause();
@@ -164,15 +198,20 @@ app.get('/wordlists/:wordList/:pageNumber/passwords.htm', function(req, res, nex
 			}
 		}
 
+		var wordlistPath = '/wordlists/';
+		if(useRules) {
+			wordlistPath = '/wordlists/rules/';
+		}
+
 		var passwordsInText = htmlEncode(wordList) + ': ' + htmlEncode(startEntry+1) + ' - ' + htmlEncode(lineNumber - 1);
 		var toOutput = '<html><head>' + commonHead + '<title>' + passwordsInText + ' - SpeedHasher.com</title></head><body><div id="content"><h1>Passwords in ' + passwordsInText + '</h1><div class="passwordList">';
 		toOutput += passwordOutput;
-		toOutput += '</div><a href="/wordlists/' + htmlEncode(wordList) + '/' + htmlEncode(nextPageNumber) + '/passwords.htm" target="_blank">More Passwords</a>'
+		toOutput += '</div><a href="' + wordlistPath + htmlEncode(wordList) + '/' + htmlEncode(nextPageNumber) + '/passwords.htm" target="_blank">More Passwords</a>'
 		toOutput += commonFooter;
 		toOutput += '</div></body></html>'
 		res.end(toOutput);
 	});
-});
+}
 
 // Mapping for rules
 app.get('/rules/:toHash.htm', function(req, res, next) {
@@ -188,17 +227,18 @@ app.get('/rules/:toHash.htm', function(req, res, next) {
 	var ignoreMaxLength = req.query.ignoreMaxLength != null;
 
 	var outputBody = '<html><head>' + commonHead + '<title>Hash of ' + htmlEncode(toHash) + ' - SpeedHasher.com</title></head><body><div id="content">';
-	outputBody += calcHashes(toHash, true);
+	outputBody += calcHashes(toHash, true, '?rules=true');
 	
 	// Add the backwards link
 	if(toHash.length >= 2) {
 		var prevPassword = toHash.substr(0, toHash.length - 1);
-		outputBody += calcHashes(prevPassword, true);
+		outputBody += calcHashes(prevPassword, true, '?rules=true');
 	}
 
 	// Add the togglecase rules
 	outputBody += rulesToggleCase(toHash, ignoreMaxLength);
 	outputBody += rulesLeet(toHash, ignoreMaxLength);
+	outputBody += rulesAppendStuff(toHash, ignoreMaxLength);
 
 	outputBody += commonFooter;
 	outputBody += '</div></body></html>';
@@ -216,12 +256,9 @@ app.get('/:toHash.htm', function(req, res, next) {
 		return;
 	}
 
-	// Should we ignore the max length?
-	var ignoreMaxLength = req.query.ignoreMaxLength != null;
-
 	var outputBody = '<html><head>' + commonHead + '<title>Hash of ' + htmlEncode(toHash) + ' - SpeedHasher.com</title></head><body><div id="content">';
 	outputBody += calcHashes(toHash, true);
-	outputBody += otherPasswords(toHash, ignoreMaxLength);
+	outputBody += otherPasswords(toHash);
 	outputBody += commonFooter;
 	outputBody += '</div></body></html>';
 
@@ -236,7 +273,9 @@ app.get('/', function(req, res, next) {
 		'<title>Hashing Experiment - SpeedHasher.com</title></head>' +
 		'<body><div id="content">' + 
 		'<h1>Word Lists</h1>' +
-		'<a href="/wordlists/rockyou/0/passwords.htm">RockYou</a>' +
+		'<a href="/wordlists/rockyou/0/passwords.htm" target="_blank">RockYou</a>' +
+		'<br>' +
+		'<a href="/wordlists/rules/rockyou/0/passwords.htm" target="_blank">RockYou + Rules</a>' +
 		otherPasswords('') +
 		commonFooter +
 		'</div></body></html>'
@@ -265,7 +304,7 @@ https.createServer({
 });
 
 // Calculates the hashes of a password
-function calcHashes(data, ignoreMaxLength, addIgnoreMaxLength) {
+function calcHashes(data, ignoreMaxLength, specialText) {
 	var outputResHashes = '';
 
 	var lmHash = '';
@@ -284,12 +323,18 @@ function calcHashes(data, ignoreMaxLength, addIgnoreMaxLength) {
 	}
 
 	// Grab the ignore text
-	var ignoreText = addIgnoreMaxLength ? '?ignoreMaxLength=true' : '';
+	var ignoreText = '';
+
+	if(specialText != null) ignoreText = specialText;
 	
 	outputResHashes += '<table class="table table-striped hashTable">';
 
 	if(data.length <= maxIndexSize || ignoreMaxLength) {
-		outputResHashes += '<tr><th>Input</th><td><a href="/' + encodeURIComponent(data) + hashExtension + ignoreText + '" target="_blank">' + htmlEncode(data) + '</a></td></tr>';
+		if(ignoreText == '?rules=true') {
+			outputResHashes += '<tr><th>Input</th><td><a href="/rules/' + encodeURIComponent(data) + hashExtension + '" target="_blank">' + htmlEncode(data) + '</a></td></tr>';
+		} else {
+			outputResHashes += '<tr><th>Input</th><td><a href="/' + encodeURIComponent(data) + hashExtension + ignoreText + '" target="_blank">' + htmlEncode(data) + '</a></td></tr>';
+		}
 	} else {
 		outputResHashes += '<tr><th>Input</th><td>' + htmlEncode(data) + '</td></tr>';
 	}
@@ -344,13 +389,25 @@ function otherPasswords(data, ignoreMaxLength) {
 function rulesToggleCase(data, ignoreMaxLength, upto) {
 	if(upto == null) {
 		upto = data.length - 1;
-		if(upto > 9) {
-			upto = 9;
+		if(upto > maxToggleLetters) {
+			var totalLetters = 0;
+			for(var i=0; i<data.length; ++i) {
+				var theChar = data[i];
+
+				if(theChar.match(/[a-z]/i)) {
+					++totalLetters;
+
+					if(totalLetters > maxToggleLetters) {
+						upto = i;
+						break;
+					}
+				}
+			}
 		}
 	}
 
 	// If we are on -1, we are done
-	if(upto == -1) return;
+	if(upto == -1) return '';
 
 	// Grab my char
 	var myChar = data[upto];
@@ -371,7 +428,7 @@ function rulesToggleCase(data, ignoreMaxLength, upto) {
 	var newString = data.substring(0, upto) + newChar + data.substring(upto + 1);
 
 	// Calculate hashes
-	var myOutput = calcHashes(newString, ignoreMaxLength);
+	var myOutput = calcHashes(newString, ignoreMaxLength, '?rules=true');
 
 	// Recurse
 	myOutput += rulesToggleCase(newString, ignoreMaxLength, upto - 1);
@@ -383,15 +440,58 @@ function rulesToggleCase(data, ignoreMaxLength, upto) {
 function rulesLeet(data, ignoreMaxLength) {
 	var myOutput = '';
 
-	myOutput += addIfDifferent(data, data.replace(/a/gi, '@'));
-	myOutput += addIfDifferent(data, data.replace(/s/gi, '$'));
-	myOutput += addIfDifferent(data, data.replace(/a/gi, '4'));
-	myOutput += addIfDifferent(data, data.replace(/e/gi, '3'));
-	myOutput += addIfDifferent(data, data.replace(/o/gi, '0'));
+	myOutput += addIfDifferent(data, data.replace(/i/gi, '1'), ignoreMaxLength);
+	myOutput += addIfDifferent(data, data.replace(/l/gi, '1'), ignoreMaxLength);
+	myOutput += addIfDifferent(data, data.replace(/z/gi, '2'), ignoreMaxLength);
+	myOutput += addIfDifferent(data, data.replace(/e/gi, '3'), ignoreMaxLength);
+	myOutput += addIfDifferent(data, data.replace(/a/gi, '4'), ignoreMaxLength);
+	myOutput += addIfDifferent(data, data.replace(/s/gi, '5'), ignoreMaxLength);
+	myOutput += addIfDifferent(data, data.replace(/b/gi, '6'), ignoreMaxLength);
+	myOutput += addIfDifferent(data, data.replace(/t/gi, '7'), ignoreMaxLength);
+	myOutput += addIfDifferent(data, data.replace(/b/gi, '8'), ignoreMaxLength);
+	myOutput += addIfDifferent(data, data.replace(/g/gi, '9'), ignoreMaxLength);
+	myOutput += addIfDifferent(data, data.replace(/o/gi, '0'), ignoreMaxLength);
+	myOutput += addIfDifferent(data, data.replace(/a/gi, '@'), ignoreMaxLength);
+	myOutput += addIfDifferent(data, data.replace(/s/gi, '$'), ignoreMaxLength);
+	myOutput += addIfDifferent(data, data.replace(/h/gi, '#'), ignoreMaxLength);
+	
+	myOutput += addIfDifferent(
+		data, data.replace(/a/gi, '@')
+					.replace(/s/gi, '$'),
+		ignoreMaxLength
+	);
 	myOutput += addIfDifferent(
 		data, data.replace(/a/gi, '@')
 					.replace(/s/gi, '$')
+					.replace(/o/gi, '0'),
+		ignoreMaxLength
 	);
+	myOutput += addIfDifferent(
+		data, data.replace(/a/gi, '@')
+					.replace(/s/gi, '$')
+					.replace(/o/gi, '0')
+					.replace(/e/gi, '3'),
+		ignoreMaxLength
+	);
+
+	return myOutput;
+}
+
+function rulesAppendStuff(data, ignoreMaxLength) {
+	var myOutput = '';
+
+	myOutput += calcHashes(data + '1', ignoreMaxLength, '?rules=true');
+	myOutput += calcHashes(data + '123', ignoreMaxLength, '?rules=true');
+	myOutput += calcHashes(data + '1234', ignoreMaxLength, '?rules=true');
+	myOutput += calcHashes(data + '123#', ignoreMaxLength, '?rules=true');
+	myOutput += calcHashes(data + '123#$', ignoreMaxLength, '?rules=true');
+	myOutput += calcHashes(data + '123#$%', ignoreMaxLength, '?rules=true');
+	myOutput += calcHashes(data + '1234$', ignoreMaxLength, '?rules=true');
+	myOutput += calcHashes(data + '1234$%', ignoreMaxLength, '?rules=true');
+	myOutput += calcHashes(data + '!23', ignoreMaxLength, '?rules=true');
+	myOutput += calcHashes(data + '!@#', ignoreMaxLength, '?rules=true');
+	myOutput += calcHashes(data + '123!@#', ignoreMaxLength, '?rules=true');
+	myOutput += calcHashes(data + '123!@#$', ignoreMaxLength, '?rules=true');
 
 	return myOutput;
 }
@@ -399,7 +499,7 @@ function rulesLeet(data, ignoreMaxLength) {
 // Returns hashes of string2 if it's different to string1
 function addIfDifferent(str1, str2, ignoreMaxLength) {
 	if(str1 == str2) return '';
-	return calcHashes(str2, ignoreMaxLength);
+	return calcHashes(str2, ignoreMaxLength, '?rules=true');
 }
 
 function getDateTime() {
