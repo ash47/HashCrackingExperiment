@@ -82,7 +82,7 @@ app.get('/sitemaps/:name.txt', function(req, res, next) {
 			if(i != 0) {
 				res.write('\r\n');
 			}
-			res.write(websiteRoot + 'wordlists/rockyou/' + i + '/passwords.htm');
+			res.write(websiteRoot + 'wordlists/rules/rockyou/' + i + '/passwords.htm');
 		}
 
 		res.end();
@@ -111,12 +111,12 @@ app.get('/sitemaps/:name.txt', function(req, res, next) {
 		for(var i=0; i<extraChars.length; ++i) {
 			var theChar = extraChars[i];
 
-			res.write('\r\n' + websiteRoot + encodeURIComponent(theChar) + hashExtension);
+			res.write('\r\n' + websiteRoot + 'rules/' + encodeURIComponent(theChar) + hashExtension);
 
 			for(var j=0; j<extraChars.length; ++j) {
 				var theChar2 = extraChars[j];
 
-				res.write('\r\n' + websiteRoot + encodeURIComponent(theChar) + encodeURIComponent(theChar2) + hashExtension);
+				res.write('\r\n' + websiteRoot + 'rules/' + encodeURIComponent(theChar) + encodeURIComponent(theChar2) + hashExtension);
 			}
 		}
 
@@ -134,8 +134,11 @@ app.get('/wordlists/rules/:wordList/:pageNumber/passwords.htm', function(req, re
 });
 
 app.get('/wordlists/:wordList/:pageNumber/passwords.htm', function(req, res, next) {
-	// Handle the request
-	wordlistHandler(req, res, next);
+	var wordList = req.params.wordList;
+	var pageNumber = req.params.pageNumber;
+
+	// 301 redirect
+	res.redirect(301, '/wordlists/rules/' + encodeURIComponent(wordList) + '/' + encodeURIComponent(pageNumber) + '/passwords.htm');
 });
 
 function wordlistHandler(req, res, next, useRules) {
@@ -240,6 +243,8 @@ app.get('/rules/:toHash.htm', function(req, res, next) {
 	outputBody += rulesLeet(toHash, ignoreMaxLength);
 	outputBody += rulesAppendStuff(toHash, ignoreMaxLength);
 
+	outputBody += otherPasswords(toHash, false, '?rules=true');
+
 	outputBody += commonFooter;
 	outputBody += '</div></body></html>';
 
@@ -248,21 +253,11 @@ app.get('/rules/:toHash.htm', function(req, res, next) {
 
 // Mapping for standard hashing
 app.get('/:toHash.htm', function(req, res, next) {
+	// Grab what we are going to hash
 	var toHash = req.params.toHash;
-	
-	var allowedChars = /^[A-Za-z0-9 !@#$%^&*()-_=+\[\]{}|\\;:'"?/,.<>`~]+$/g;
-	if(!allowedChars.test(toHash)) {
-		next();
-		return;
-	}
 
-	var outputBody = '<html><head>' + commonHead + '<title>Hash of ' + htmlEncode(toHash) + ' - SpeedHasher.com</title></head><body><div id="content">';
-	outputBody += calcHashes(toHash, true);
-	outputBody += otherPasswords(toHash);
-	outputBody += commonFooter;
-	outputBody += '</div></body></html>';
-
-	res.end(outputBody);
+	// 301 redirect to rules
+	res.redirect(301, '/rules/' + encodeURIComponent(toHash) + '.htm');
 });
 
 // Landing page
@@ -273,10 +268,8 @@ app.get('/', function(req, res, next) {
 		'<title>Hashing Experiment - SpeedHasher.com</title></head>' +
 		'<body><div id="content">' + 
 		'<h1>Word Lists</h1>' +
-		'<a href="/wordlists/rockyou/0/passwords.htm" target="_blank">RockYou</a>' +
-		'<br>' +
 		'<a href="/wordlists/rules/rockyou/0/passwords.htm" target="_blank">RockYou + Rules</a>' +
-		otherPasswords('') +
+		otherPasswords('', false, '?rules=true') +
 		commonFooter +
 		'</div></body></html>'
 	);
@@ -350,7 +343,7 @@ function calcHashes(data, ignoreMaxLength, specialText) {
 }
 
 // Generates a list of suggested other passwords
-function otherPasswords(data, ignoreMaxLength) {
+function otherPasswords(data, ignoreMaxLength, specialText) {
 	var outputOtherPasswords = '';
 	outputOtherPasswords += '<div>';
 	outputOtherPasswords += '<h1>Hash a Password</h1>';
@@ -363,7 +356,7 @@ function otherPasswords(data, ignoreMaxLength) {
 	if(data.length >= 2) {
 		var prevPassword = data.substr(0, data.length - 1);
 		//outputOtherPasswords += '<li><a href="/' + encodeURIComponent(prevPassword) + '.htm" target="_blank">' + htmlEncode(prevPassword) + '</a></li>'
-		outputOtherPasswords += calcHashes(prevPassword, true);
+		outputOtherPasswords += calcHashes(prevPassword, true, specialText);
 	}
 
 	/*if(data.length >= maxIndexSize && !ignoreMaxLength) {
@@ -375,7 +368,7 @@ function otherPasswords(data, ignoreMaxLength) {
 		var nextPassword = data + extraChars[i];
 
 		//outputOtherPasswords += '<li><a href="/' + encodeURIComponent(nextPassword) + '.htm" target="_blank">' + htmlEncode(nextPassword) + '</a></li>'
-		outputOtherPasswords += calcHashes(nextPassword, ignoreMaxLength);
+		outputOtherPasswords += calcHashes(nextPassword, ignoreMaxLength, specialText);
 	}
 
 	//outputOtherPasswords += '</ul>';
