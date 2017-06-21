@@ -198,7 +198,7 @@ app.get('/rules/:toHash.htm', function(req, res, next) {
 
 	// Add the togglecase rules
 	outputBody += rulesToggleCase(toHash, ignoreMaxLength);
-
+	outputBody += rulesLeet(toHash, ignoreMaxLength);
 
 	outputBody += commonFooter;
 	outputBody += '</div></body></html>';
@@ -371,13 +371,35 @@ function rulesToggleCase(data, ignoreMaxLength, upto) {
 	var newString = data.substring(0, upto) + newChar + data.substring(upto + 1);
 
 	// Calculate hashes
-	var myOutput = calcHashes(newString);
+	var myOutput = calcHashes(newString, ignoreMaxLength);
 
 	// Recurse
 	myOutput += rulesToggleCase(newString, ignoreMaxLength, upto - 1);
 	myOutput += rulesToggleCase(data, ignoreMaxLength, upto - 1);
 
 	return myOutput;
+}
+
+function rulesLeet(data, ignoreMaxLength) {
+	var myOutput = '';
+
+	myOutput += addIfDifferent(data, data.replace(/a/gi, '@'));
+	myOutput += addIfDifferent(data, data.replace(/s/gi, '$'));
+	myOutput += addIfDifferent(data, data.replace(/a/gi, '4'));
+	myOutput += addIfDifferent(data, data.replace(/e/gi, '3'));
+	myOutput += addIfDifferent(data, data.replace(/o/gi, '0'));
+	myOutput += addIfDifferent(
+		data, data.replace(/a/gi, '@')
+					.replace(/s/gi, '$')
+	);
+
+	return myOutput;
+}
+
+// Returns hashes of string2 if it's different to string1
+function addIfDifferent(str1, str2, ignoreMaxLength) {
+	if(str1 == str2) return '';
+	return calcHashes(str2, ignoreMaxLength);
 }
 
 function getDateTime() {
