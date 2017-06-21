@@ -473,7 +473,6 @@ function rulesLeet(data, ignoreMaxLength) {
 function rulesAppendStuff(data, ignoreMaxLength) {
 	var myOutput = '';
 
-	myOutput += calcHashes(data + '1', ignoreMaxLength, '?rules=true');
 	myOutput += calcHashes(data + '123', ignoreMaxLength, '?rules=true');
 	myOutput += calcHashes(data + '1234', ignoreMaxLength, '?rules=true');
 	myOutput += calcHashes(data + '123#', ignoreMaxLength, '?rules=true');
