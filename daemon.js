@@ -142,7 +142,7 @@ app.get('/wordlists/:wordList/:pageNumber/passwords.htm', function(req, res, nex
 		if(++lineNumber > startEntry) {
 			if(lineNumber <= startEntry + wordsPerPage) {
 				//toOutput += '<li><a href="/' + encodeURIComponent(line) + '.htm" target="_blank">' + htmlEncode(line) + '</a></li>';
-				passwordOutput += calcHashes(line, true);
+				passwordOutput += calcHashes(line, true, true);
 			} else {
 				// Done
 				rl.pause();
@@ -208,7 +208,7 @@ app.use(function(req, res, next) {
 		var ignoreMaxLength = req.query.ignoreMaxLength != null;
 
 		var outputBody = '<html><head>' + commonHead + '<title>Hash of ' + htmlEncode(toMatch) + ' - SpeedHasher.com</title></head><body><div id="content">';
-		outputBody += calcHashes(toMatch);
+		outputBody += calcHashes(toMatch, true);
 		outputBody += otherPasswords(toMatch, ignoreMaxLength);
 		outputBody += commonFooter;
 		outputBody += '</div></body></html>';
@@ -232,7 +232,7 @@ https.createServer({
 });
 
 // Calculates the hashes of a password
-function calcHashes(data, ignoreMaxLength) {
+function calcHashes(data, ignoreMaxLength, addIgnoreMaxLength) {
 	var outputResHashes = '';
 
 	var lmHash = '';
@@ -251,10 +251,16 @@ function calcHashes(data, ignoreMaxLength) {
 	}
 
 	// Grab the ignore text
-	var ignoreText = ignoreMaxLength ? '?ignoreMaxLength=true' : '';
+	var ignoreText = addIgnoreMaxLength ? '?ignoreMaxLength=true' : '';
 	
 	outputResHashes += '<table class="table table-striped hashTable">';
-	outputResHashes += '<tr><th>Input</th><td><a href="/' + encodeURIComponent(data) + hashExtension + ignoreText + '" target="_blank">' + htmlEncode(data) + '</a></td></tr>';
+
+	if(data.length <= maxIndexSize || ignoreMaxLength) {
+		outputResHashes += '<tr><th>Input</th><td><a href="/' + encodeURIComponent(data) + hashExtension + ignoreText + '" target="_blank">' + htmlEncode(data) + '</a></td></tr>';
+	} else {
+		outputResHashes += '<tr><th>Input</th><td>' + htmlEncode(data) + '</td></tr>';
+	}
+	
 	outputResHashes += '<tr><th>NTLM</th><td>' + lmHash + ':' + ntHash + '</td></tr>';
 	outputResHashes += '<tr><th>NTLM (no LM)</th><td>aad3b435b51404eeaad3b435b51404ee:' + ntHash + '</td></tr>';
 	outputResHashes += '<tr><th>MD5</th><td>' + md5(data) + '</td></tr>';
@@ -279,19 +285,19 @@ function otherPasswords(data, ignoreMaxLength) {
 	if(data.length >= 2) {
 		var prevPassword = data.substr(0, data.length - 1);
 		//outputOtherPasswords += '<li><a href="/' + encodeURIComponent(prevPassword) + '.htm" target="_blank">' + htmlEncode(prevPassword) + '</a></li>'
-		outputOtherPasswords += calcHashes(prevPassword);
+		outputOtherPasswords += calcHashes(prevPassword, true);
 	}
 
-	if(data.length >= maxIndexSize && !ignoreMaxLength) {
+	/*if(data.length >= maxIndexSize && !ignoreMaxLength) {
 		// Make a suggestion to go back to the start
 		data = data.substr(0, maxIndexSize-1);
-	}
+	}*/
 
 	for(var i=0; i<extraChars.length; ++i) {
 		var nextPassword = data + extraChars[i];
 
 		//outputOtherPasswords += '<li><a href="/' + encodeURIComponent(nextPassword) + '.htm" target="_blank">' + htmlEncode(nextPassword) + '</a></li>'
-		outputOtherPasswords += calcHashes(nextPassword);
+		outputOtherPasswords += calcHashes(nextPassword, ignoreMaxLength);
 	}
 
 	//outputOtherPasswords += '</ul>';
