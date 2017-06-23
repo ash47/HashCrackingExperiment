@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const readline = require('readline');
 const stream = require('stream');
+const winston = require('winston');
 
 // Webserver Imports
 const express = require('express');
@@ -39,6 +40,9 @@ const wordLists = {
 const commonHead = fs.readFileSync(__dirname + '/lib/common_head.htm');
 const commonFooter = fs.readFileSync(__dirname + '/lib/footer.htm');
 
+// Enable compression
+app.use(require('compression')());
+
 // Remove x-powered-by
 app.disable('x-powered-by');
 
@@ -48,7 +52,7 @@ app.use(function(req, res, next) {
 	res.setHeader('X-Frame-Options', 'DENY');
 
 	// Logging
-	console.log(getDateTime(), req.url, req.connection.remoteAddress, req.headers['user-agent']);
+	winston.info(getDateTime(), req.url, req.connection.remoteAddress, req.headers['user-agent']);
 
 	// Continue
 	next();
@@ -85,7 +89,7 @@ app.get('/sitemaps/:name.txt', function(req, res, next) {
 			res.write(websiteRoot + 'wordlists/rules/rockyou/' + i + '/passwords.htm');
 		}
 
-		res.end();
+		res.send();
 		return;
 	}
 
@@ -101,7 +105,7 @@ app.get('/sitemaps/:name.txt', function(req, res, next) {
 			res.write(websiteRoot + 'wordlists/rules/rockyou/' + i + '/passwords.htm');
 		}
 
-		res.end();
+		res.send();
 		return;
 	}
 
@@ -120,7 +124,7 @@ app.get('/sitemaps/:name.txt', function(req, res, next) {
 			}
 		}
 
-		res.end();
+		res.send();
 		return;
 	}
 
@@ -212,7 +216,7 @@ function wordlistHandler(req, res, next, useRules) {
 		toOutput += '</div><a href="' + wordlistPath + htmlEncode(wordList) + '/' + htmlEncode(nextPageNumber) + '/passwords.htm" target="_blank">More Passwords</a>'
 		toOutput += commonFooter;
 		toOutput += '</div></body></html>'
-		res.end(toOutput);
+		res.send(toOutput);
 	});
 }
 
@@ -248,7 +252,7 @@ app.get('/rules/:toHash.htm', function(req, res, next) {
 	outputBody += commonFooter;
 	outputBody += '</div></body></html>';
 
-	res.end(outputBody);
+	res.send(outputBody);
 });
 
 // Mapping for standard hashing
@@ -262,7 +266,7 @@ app.get('/:toHash.htm', function(req, res, next) {
 
 // Landing page
 app.get('/', function(req, res, next) {
-	res.end(
+	res.send(
 		'<html><head>' + 
 		commonHead + 
 		'<title>Hashing Experiment - SpeedHasher.com</title></head>' +
@@ -277,15 +281,15 @@ app.get('/', function(req, res, next) {
 
 // Error handler
 app.use(function(err, req, res, next) {
-	console.log(err);
+	winston.error(err);
 
 	// Send a 404
-	res.status(404).end('404');
+	res.status(404).send('404');
 })
 
 // Create the HTTP server
 http.createServer(app).listen(config.port, function () {
-	console.log('Server listening on port ' + config.port);
+	winston.info('Server listening on port ' + config.port);
 });
 
 // Create the HTTPS server
@@ -293,7 +297,7 @@ https.createServer({
 	key: fs.readFileSync('creds/creds.key', 'utf8'),
 	cert: fs.readFileSync('creds/creds.crt', 'utf8')
 }, app).listen(config.sslPort, function () {
-	console.log('Server listening on SSL port ' + config.sslPort);
+	winston.info('Server listening on SSL port ' + config.sslPort);
 });
 
 // Calculates the hashes of a password
