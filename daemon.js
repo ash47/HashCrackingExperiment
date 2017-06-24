@@ -33,7 +33,8 @@ const extraChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01234567
 
 // List of wordlists we support
 const wordLists = {
-	rockyou: __dirname + '/wordlists/rockyou.txt'
+	rockyou: __dirname + '/wordlists/rockyou.txt',
+	english: __dirname + '/wordlists/english.txt'
 };
 
 // Read in the common headers
@@ -175,6 +176,8 @@ app.get('/', function(req, res, next) {
 		'<body><div id="content">' + 
 		'<h1>Word Lists</h1>' +
 		'<a href="/wordlists/rules/rockyou/0/passwords.htm" target="_blank">RockYou + Rules</a>' +
+		'<br>' +
+		'<a href="/wordlists/rules/english/0/passwords.htm" target="_blank">English Words + Rules</a>' +
 		hashPasswordSection() +
 		otherPasswords('') +
 		commonFooter +
@@ -227,6 +230,22 @@ app.get('/sitemaps/:name.txt', function(req, res, next) {
 				res.write('\r\n');
 			}
 			res.write(websiteRoot + 'wordlists/rules/rockyou/' + i + '/passwords.htm');
+		}
+
+		res.send();
+		return;
+	}
+
+	if(sitemapName == 'english_rules') {
+		var maxWords = 525571;
+
+		var toOutput = '';
+
+		for(var i=0; i * wordsPerPage<maxWords; ++i) {
+			if(i != 0) {
+				res.write('\r\n');
+			}
+			res.write(websiteRoot + 'wordlists/rules/english/' + i + '/passwords.htm');
 		}
 
 		res.send();
