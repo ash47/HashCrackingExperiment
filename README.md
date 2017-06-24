@@ -9,7 +9,7 @@ A thought experiment to see if it's possible to leverage google's indexing servi
  - As an example, type the following hash into Google to "crack" it: [07fc37bfba617b804731ce083b72d87f](https://www.google.com.au/search?q=07fc37bfba617b804731ce083b72d87f)
  - The above example was working at the time of writing this.
 
-The website is deployed here: [http://SpeedHasher.com](http://speedhasher.com)
+The website is deployed here: [https://speedHasher.com](https://speedhasher.com)
 
 You can view the current indexing progress here: [SpeedHasher.com on Google](https://www.google.com.au/search?q=site%3Aspeedhasher.com)
 
