@@ -1,0 +1,17 @@
+{
+	"rockyou": {
+		"file": "./wordlists/rockyou.txt",
+		"sitemapName": "rockyou_rules",
+		"friendlyName": "RockYou + Rules"
+	},
+	"english": {
+		"file": "./wordlists/english.txt",
+		"sitemapName": "english_rules",
+		"friendlyName": "English Words + Rules"
+	},
+	"names": {
+		"file": "./wordlists/names.txt",
+		"sitemapName": "names_rules",
+		"friendlyName": "English Names + Rules"
+	}
+}

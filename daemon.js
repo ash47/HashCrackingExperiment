@@ -32,10 +32,94 @@ var maxToggleLetters = 9;
 const extraChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 !@#$%^&*()-_=+[]{}|\\;:\'"?/,.<>`~';
 
 // List of wordlists we support
-const wordLists = {
-	rockyou: __dirname + '/wordlists/rockyou.txt',
-	english: __dirname + '/wordlists/english.txt'
-};
+var wordLists = {};
+var siteMaps = {};
+
+// Async reload of wordlists
+var reloadInProgress = false;
+var reloadFinishList = [];
+function reloadWordlists(callback) {
+	if(callback != null) reloadFinishList.push(callback);
+	if(reloadInProgress) return;
+	reloadInProgress = true;
+
+	// Log what is happening
+	winston.info('Reloading all wordlists...');
+
+	// Read in the config file
+	fs.readFile('./wordlists.json', function(err, data) {
+		if(err) {
+			winston.info('Failed to load wordlists!');
+		}
+
+		var wordListsTemp = {};
+		try {
+			wordListsTemp = JSON.parse(data);
+		} catch(e) {
+			// Do nothing
+		}
+
+		var siteMapsTemp = {};
+
+		var totalLeft = 0;
+		var checkDone = function() {
+			if(--totalLeft <= 0) {
+				// Store the changes
+				wordLists = wordListsTemp;
+				siteMaps = siteMapsTemp;
+
+				// Done reloading
+				reloadInProgress = false;
+				var allCallbacks = reloadFinishList;
+				reloadFinishList = [];
+
+				// Run all callbacks
+				for(var i=0; i<allCallbacks.length; ++i) {
+					allCallbacks[i]();
+				}
+			}
+		}
+
+		// Function to count how many lines in a file
+		var readLines = function(wordListName) {
+			var myInfo = wordListsTemp[wordListName];
+
+			var instream = fs.createReadStream(myInfo.file);
+			var outstream = new stream();
+			var rl = readline.createInterface(instream, outstream);
+
+			var totalLines = 0;
+			rl.on('line', function(line) {
+				++totalLines;
+			});
+
+			rl.on('close', function() {
+				// Store the number of lines
+				siteMapsTemp[myInfo.sitemapName] = {
+					lines: totalLines,
+					path: wordListName
+				};
+
+				checkDone();
+			});
+		}
+
+		// Increase the total number of reload
+		for(var wordListName in wordListsTemp) {
+			++totalLeft;
+		}
+
+		if(totalLeft == 0) {
+			totalLeft = 1;
+			checkDone();
+		} else {
+			// Reload them all
+			for(var wordListName in wordListsTemp) {
+				readLines(wordListName);
+			}	
+		}
+	});
+}
 
 // Read in the common headers
 const commonHead = fs.readFileSync(__dirname + '/lib/common_head.htm');
@@ -121,7 +205,7 @@ app.get('/wordlists/rules/:wordList/:pageNumber/passwords.htm', function(req, re
 		return;
 	}
 
-	var instream = fs.createReadStream(wordLists[wordList]);
+	var instream = fs.createReadStream(wordLists[wordList].file);
 	var outstream = new stream();
 	var rl = readline.createInterface(instream, outstream);
 
@@ -167,6 +251,19 @@ app.get('/wordlists/rules/:wordList/:pageNumber/passwords.htm', function(req, re
 	});
 });
 
+function indexPageWordLists() {
+	var theOutput = '';
+
+	for(var wordListName in wordLists) {
+		var info = wordLists[wordListName];
+
+		theOutput += '<a href="/wordlists/rules/' + htmlEncode(wordListName) + '/0/passwords.htm" target="_blank">' + htmlEncode(info.friendlyName) + '</a>';
+		theOutput += '<br>';
+	}
+
+	return theOutput;
+}
+
 // Landing page
 app.get('/', function(req, res, next) {
 	res.send(
@@ -175,9 +272,7 @@ app.get('/', function(req, res, next) {
 		'<title>Hashing Experiment - SpeedHasher.com</title></head>' +
 		'<body><div id="content">' + 
 		'<h1>Word Lists</h1>' +
-		'<a href="/wordlists/rules/rockyou/0/passwords.htm" target="_blank">RockYou + Rules</a>' +
-		'<br>' +
-		'<a href="/wordlists/rules/english/0/passwords.htm" target="_blank">English Words + Rules</a>' +
+		indexPageWordLists() +
 		hashPasswordSection() +
 		otherPasswords('') +
 		commonFooter +
@@ -204,6 +299,24 @@ app.get('/sitemaps/:name.xml', function(req, res, next) {
 app.get('/sitemaps/:name.txt', function(req, res, next) {
 	var sitemapName = req.params.name;
 
+	// Dynamic Maps
+	var possibleInfo = siteMaps[sitemapName];
+	if(possibleInfo != null) {
+		var maxWords = possibleInfo.lines;
+		var thePath = possibleInfo.path;
+
+		for(var i=0; i * wordsPerPage<maxWords; ++i) {
+			if(i != 0) {
+				res.write('\r\n');
+			}
+			res.write(websiteRoot + 'wordlists/rules/' + thePath + '/' + i + '/passwords.htm');
+		}
+
+		res.send();
+		return;
+	}
+
+	// Legacy stuff
 	if(sitemapName == 'rockyou') {
 		var maxWords = 14344391;
 
@@ -214,38 +327,6 @@ app.get('/sitemaps/:name.txt', function(req, res, next) {
 				res.write('\r\n');
 			}
 			res.write(websiteRoot + 'wordlists/rules/rockyou/' + i + '/passwords.htm');
-		}
-
-		res.send();
-		return;
-	}
-
-	if(sitemapName == 'rockyou_rules') {
-		var maxWords = 14344391;
-
-		var toOutput = '';
-
-		for(var i=0; i * wordsPerPage<maxWords; ++i) {
-			if(i != 0) {
-				res.write('\r\n');
-			}
-			res.write(websiteRoot + 'wordlists/rules/rockyou/' + i + '/passwords.htm');
-		}
-
-		res.send();
-		return;
-	}
-
-	if(sitemapName == 'english_rules') {
-		var maxWords = 525571;
-
-		var toOutput = '';
-
-		for(var i=0; i * wordsPerPage<maxWords; ++i) {
-			if(i != 0) {
-				res.write('\r\n');
-			}
-			res.write(websiteRoot + 'wordlists/rules/english/' + i + '/passwords.htm');
 		}
 
 		res.send();
@@ -300,6 +381,14 @@ app.get('/rules/:toHash', function(req, res, next) {
 	res.redirect(301, '/rules/' + encodeURIComponent(toHash) + '.htm');
 });
 
+// Do a wordlist reload
+app.get('/reload', function(req, res, next) {
+	// Reload the wordlists
+	reloadWordlists(function() {
+		res.send('Done reloading!');
+	});
+})
+
 // Error handler
 app.use(function(err, req, res, next) {
 	winston.error(err);
@@ -308,17 +397,20 @@ app.use(function(err, req, res, next) {
 	res.status(404).send('404');
 })
 
-// Create the HTTP server
-http.createServer(app).listen(config.port, function () {
-	winston.info('Server listening on port ' + config.port);
-});
+// Reload lists
+reloadWordlists(function() {
+	// Create the HTTP server
+	http.createServer(app).listen(config.port, function () {
+		winston.info('Server listening on port ' + config.port);
+	});
 
-// Create the HTTPS server
-https.createServer({
-	key: fs.readFileSync('creds/creds.key', 'utf8'),
-	cert: fs.readFileSync('creds/creds.crt', 'utf8')
-}, app).listen(config.sslPort, function () {
-	winston.info('Server listening on SSL port ' + config.sslPort);
+	// Create the HTTPS server
+	https.createServer({
+		key: fs.readFileSync('creds/creds.key', 'utf8'),
+		cert: fs.readFileSync('creds/creds.crt', 'utf8')
+	}, app).listen(config.sslPort, function () {
+		winston.info('Server listening on SSL port ' + config.sslPort);
+	});
 });
 
 // Calculates the hashes of a password
