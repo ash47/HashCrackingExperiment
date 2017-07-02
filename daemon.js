@@ -593,6 +593,11 @@ function rulesAppendStuff(data, options) {
 	myOutput += calcHashes(data + '123!@#', options);
 	myOutput += calcHashes(data + '123!@#$', options);
 
+	// Add 130 years to the passwords
+	for(var year=1900; year<=2030; ++year) {
+		myOutput += calcHashes(data + year, options);	
+	}
+
 	return myOutput;
 }
 
