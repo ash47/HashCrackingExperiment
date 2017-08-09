@@ -26,7 +26,7 @@ var websiteRoot = 'https://speedhasher.com/';
 const maxIndexSize = 4;
 
 // Max number of toggles (real is one more than this)
-var maxToggleLetters = 9;
+var maxToggleLetters = 5;
 
 // Used for generation of other URLs
 const extraChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 !@#$%^&*()-_=+[]{}|\\;:\'"?/,.<>`~';
@@ -34,6 +34,11 @@ const extraChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01234567
 // List of wordlists we support
 var wordLists = {};
 var siteMaps = {};
+
+// A list of recent words
+var recentWords = [];
+var recentWordsMap = {};
+var maxRecentWords = 100;
 
 // Async reload of wordlists
 var reloadInProgress = false;
@@ -169,7 +174,7 @@ app.get('/rules/:toHash.htm', function(req, res, next) {
 
 	// Add the togglecase rules
 	outputBody += '<h1>Password Permutations</h1>';
-	outputBody += rulesToggleCase(toHash, ignoreMaxLength);
+	//outputBody += rulesToggleCase(toHash, ignoreMaxLength);
 	outputBody += rulesLeet(toHash, ignoreMaxLength);
 	outputBody += rulesAppendStuff(toHash, ignoreMaxLength);
 
@@ -179,6 +184,9 @@ app.get('/rules/:toHash.htm', function(req, res, next) {
 	outputBody += '</div></body></html>';
 
 	res.send(outputBody);
+
+	// Add it to our recent words
+	addRecentWord(toHash);
 });
 
 // Mapping for wordlists
@@ -253,6 +261,14 @@ app.get('/wordlists/rules/:wordList/:pageNumber/passwords.htm', function(req, re
 
 function indexPageWordLists() {
 	var theOutput = '';
+
+	// Add the link to recent passwords
+	theOutput += '<a href="/recent.php" target="_blank">Recent Passwords</a>';
+	theOutput += '<br>';
+
+	// Add a link to random passwords
+	theOutput += '<a href="/random.php" target="_blank">Random Passwords</a>';
+	theOutput += '<br>';
 
 	for(var wordListName in wordLists) {
 		var info = wordLists[wordListName];
@@ -379,6 +395,63 @@ app.get('/rules/:toHash', function(req, res, next) {
 
 	// 301 redirect to rules
 	res.redirect(301, '/rules/' + encodeURIComponent(toHash) + '.htm');
+});
+
+// Recent words
+app.get('/recent.php', function(req, res, next) {
+	var outputBody = '<html><head>' + commonHead + '<title>Recent Hashes - SpeedHasher.com</title></head><body><div id="content">';
+	
+	// Add the header
+	outputBody += '<h1>Recent Hashes</h1>'
+	outputBody += '<p>This page shows hashes that were recently calculated.</p>'
+
+	// Was there any recent words?
+	if(recentWords.length <= 0) {
+		// No recent words
+		outputBody += '<p>There was no recent words.</p>';
+	} else {
+		// Loop over all recent words
+		for(var i=0; i<recentWords.length; ++i) {
+			// Grab the hash value
+			var toHash = recentWords[i];
+
+			// Output it
+			outputBody += calcHashes(toHash, {
+				alwaysHyperlink: true
+			});
+		}
+	}
+
+	outputBody += commonFooter;
+	outputBody += '</div></body></html>';
+
+	res.send(outputBody);
+});
+
+// Random passwords
+app.get('/random.php', function(req, res, next) {
+	var outputBody = '<html><head>' + commonHead + '<title>Recent Hashes - SpeedHasher.com</title></head><body><div id="content">';
+	
+	// Add the header
+	outputBody += '<h1>Random Hashes</h1>'
+	outputBody += '<p>This page shows random hashes.</p>'
+
+	// Generate random hashes
+	var maxRandomHashes = 100;
+	for(var i=0; i<maxRandomHashes; ++i) {
+		// Grab the hash value
+		var toHash = randomString();
+
+		// Output it
+		outputBody += calcHashes(toHash, {
+			alwaysHyperlink: true
+		});
+	}
+
+	outputBody += commonFooter;
+	outputBody += '</div></body></html>';
+
+	res.send(outputBody);
 });
 
 // Do a wordlist reload
@@ -594,9 +667,9 @@ function rulesAppendStuff(data, options) {
 	myOutput += calcHashes(data + '123!@#$', options);
 
 	// Add 130 years to the passwords
-	for(var year=1900; year<=2030; ++year) {
+	/*for(var year=1900; year<=2030; ++year) {
 		myOutput += calcHashes(data + year, options);	
-	}
+	}*/
 
 	return myOutput;
 }
@@ -605,6 +678,25 @@ function rulesAppendStuff(data, options) {
 function addIfDifferent(str1, str2, options) {
 	if(str1 == str2) return '';
 	return calcHashes(str2, options);
+}
+
+// Stores recent words
+function addRecentWord(word) {
+	// If we've seen this word recently, ignore
+	if(recentWordsMap[word]) return;
+
+	// Have we hit the max number of recent words?
+	if(recentWords.length >= maxRecentWords) {
+		// Grab a recent word
+		var removeWord = recentWords.shift();
+
+		// Remove it from the map
+		delete recentWordsMap[removeWord];
+	}
+
+	// We now have space, store it
+	recentWords.push(word);
+	recentWordsMap[word] = true;
 }
 
 function getDateTime() {
@@ -670,4 +762,21 @@ function sha1(data) {
 	} catch(e) {
 		return '';
 	}
+}
+
+function randomString(totalChars, possible) {
+	var minLen = 1;
+	var maxLen = 10;
+
+	if(totalChars == null || totalChars <= 0) {
+		totalChars = Math.floor(Math.random() * maxLen) + minLen;
+	}
+
+	var text = "";
+	var possible = possible || extraChars;
+
+	for (var i = 0; i < totalChars; i++)
+	text += possible.charAt(Math.floor(Math.random() * possible.length));
+
+	return text;
 }

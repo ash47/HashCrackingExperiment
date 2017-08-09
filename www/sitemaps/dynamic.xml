@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+   <url>
+      <loc>https://speedhasher.com/recent.php</loc>
+      <changefreq>hourly</changefreq>
+   </url>
+   <url>
+      <loc>https://speedhasher.com/random.php</loc>
+      <changefreq>always</changefreq>
+   </url>
+</urlset> 
